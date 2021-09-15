@@ -1,2 +1,2 @@
 # DooVerse
-AnChain.AI  Metaverse initial commit. 
+AnChain.AI  Dooverse smart contract (passed FLOW Review)
