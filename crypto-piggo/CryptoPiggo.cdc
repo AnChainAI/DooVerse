@@ -12,7 +12,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
-import NonFungibleToken from ${nftAddress}
+import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc"
 
 // CryptoPiggo
 // NFT items for Crypto Piggos!
@@ -56,16 +56,22 @@ pub contract CryptoPiggo: NonFungibleToken {
 
         // The token's metadata in dict format
         access(self) let metadata: {String: String}
-        
+
+        pub fun getMetadata(): {String: String} {
+            return self.metadata
+        }
+
+        // destructor
+        //
+        destroy() {
+            panic("Cannot delete NFT")
+        }
+
         // initializer
         //
         init(initID: UInt64, initMeta: {String: String}) {
             self.id = initID
             self.metadata = initMeta
-        }
-
-        pub fun getMetadata(): {String: String} {
-            return self.metadata
         }
     }
 
@@ -164,8 +170,13 @@ pub contract CryptoPiggo: NonFungibleToken {
         }
 
         // destructor
+        //
         destroy() {
-            destroy self.ownedNFTs
+            if self.ownedNFTs.length == 0 {
+                destroy self.ownedNFTs
+            } else {
+                panic("Collection must be empty before it can be destroyed.")
+            }
         }
 
         // initializer
