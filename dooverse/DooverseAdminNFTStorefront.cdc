@@ -2,7 +2,7 @@ import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc
 import FungibleToken from "../cadence/contracts/standard/FungibleToken.cdc"
 import DooverseItems from "./DooverseItems.cdc"
 
-// DooverseNFTStorefront
+// DooverseAdminNFTStorefront
 //
 // What's the difference between this contract and the general-purpose NFTStorefront contract?
 //
@@ -47,7 +47,7 @@ import DooverseItems from "./DooverseItems.cdc"
 // the listed item. Marketplaces and other aggregators can watch for Listing events and list items 
 // of interest.
 //
-pub contract DooverseNFTStorefront {
+pub contract DooverseAdminNFTStorefront {
   // NFTStorefrontInitialized
   // This contract has been deployed.
   // Event consumers can now expect events from this contract.
@@ -304,7 +304,7 @@ pub contract DooverseNFTStorefront {
       self.details.setToPurchased()
 
       // Get the minter from admin storage
-      let minter = DooverseNFTStorefront.account.borrow<&DooverseItems.NFTMinter>(from: DooverseItems.MinterStoragePath) ??
+      let minter = DooverseAdminNFTStorefront.account.borrow<&DooverseItems.NFTMinter>(from: DooverseItems.MinterStoragePath) ??
         panic("Could not borrow a reference to the NFT minter")
 
       // Mint the NFTs to the specified account
@@ -383,7 +383,7 @@ pub contract DooverseNFTStorefront {
     // Returns an array of set IDs.
     //
     pub fun getSetIDs(): [String] {
-      return DooverseNFTStorefront.listings.keys
+      return DooverseAdminNFTStorefront.listings.keys
     }
 
     // getPackIDs
@@ -401,8 +401,8 @@ pub contract DooverseNFTStorefront {
     // Returns a read-only view of the listings for the given setID if it is contained by this collection.
     //
     pub fun borrowListings(setID: String): &{String: Listing{ListingPublic}}? {
-      if DooverseNFTStorefront.listings[setID] != nil {
-        return &DooverseNFTStorefront.listings[setID] as! &{String: Listing{ListingPublic}}
+      if DooverseAdminNFTStorefront.listings[setID] != nil {
+        return &DooverseAdminNFTStorefront.listings[setID] as! &{String: Listing{ListingPublic}}
       } else {
         return nil
       }
@@ -428,9 +428,9 @@ pub contract DooverseNFTStorefront {
     //
     pub fun cleanup(setID: String, packID: String) {
       pre {
-        DooverseNFTStorefront.listings.containsKey(setID): "Set ID does not exist"
+        DooverseAdminNFTStorefront.listings.containsKey(setID): "Set ID does not exist"
       }
-      let setListings <- DooverseNFTStorefront.listings.remove(key: setID)!
+      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       assert(details.purchased == true, message: "listing is not purchased, only admin can remove")
@@ -438,7 +438,7 @@ pub contract DooverseNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseNFTStorefront.listings[setID] <-! setListings
+        DooverseAdminNFTStorefront.listings[setID] <-! setListings
       }
     }
 
@@ -497,8 +497,8 @@ pub contract DooverseNFTStorefront {
       )
 
       // Add the new listing to the dictionary.
-      if (DooverseNFTStorefront.listings.containsKey(setID)) {
-        let setListings <- DooverseNFTStorefront.listings.remove(key: setID)!
+      if (DooverseAdminNFTStorefront.listings.containsKey(setID)) {
+        let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
         if setListings.containsKey(packID) {
           destroy listing
           panic("packID already exists")
@@ -506,9 +506,9 @@ pub contract DooverseNFTStorefront {
           let oldListing <- setListings[packID] <-! listing
           destroy oldListing        
         }
-        DooverseNFTStorefront.listings[setID] <-! setListings
+        DooverseAdminNFTStorefront.listings[setID] <-! setListings
       } else {
-        let oldSetListing <- DooverseNFTStorefront.listings[setID] <- { packID: <- listing }
+        let oldSetListing <- DooverseAdminNFTStorefront.listings[setID] <- { packID: <- listing }
         // Note that oldSetListing will always be nil, but we have to handle it.
         destroy oldSetListing
       }
@@ -537,7 +537,7 @@ pub contract DooverseNFTStorefront {
     // Remove a Listing from the collection and destroy it.
     //
     pub fun removeListing(setID: String, packID: String) {
-      let setListings <- DooverseNFTStorefront.listings.remove(key: setID)!
+      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       destroy listing
@@ -549,7 +549,7 @@ pub contract DooverseNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseNFTStorefront.listings[setID] <-! setListings      
+        DooverseAdminNFTStorefront.listings[setID] <-! setListings      
       }
     }
 
@@ -557,7 +557,7 @@ pub contract DooverseNFTStorefront {
     // Remove a Listing from the collection, mark it as either purchased or un-purchased, and destroy it.
     //
     pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool) {
-      let setListings <- DooverseNFTStorefront.listings.remove(key: setID)!
+      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       destroy listing
@@ -569,7 +569,7 @@ pub contract DooverseNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseNFTStorefront.listings[setID] <-! setListings      
+        DooverseAdminNFTStorefront.listings[setID] <-! setListings      
       }
     }
 
@@ -583,9 +583,9 @@ pub contract DooverseNFTStorefront {
   }
 
   init() {
-    self.StorefrontStoragePath = /storage/DooverseNFTStorefront
-    self.StorefrontPublicPath = /public/DooverseNFTStorefront
-    self.AdminStorefrontStoragePath = /storage/AdminDooverseNFTStorefront
+    self.StorefrontStoragePath = /storage/DooverseAdminNFTStorefront
+    self.StorefrontPublicPath = /public/DooverseAdminNFTStorefront
+    self.AdminStorefrontStoragePath = /storage/AdminDooverseAdminNFTStorefront
     self.listings <- {}
     self.account.save(<- create AdminStorefront(), to: self.AdminStorefrontStoragePath)
     emit NFTStorefrontInitialized()
