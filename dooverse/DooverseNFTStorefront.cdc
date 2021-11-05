@@ -1,6 +1,6 @@
-import NonFungibleToken from ${nftAddress}
-import FungibleToken from ${ftAddress}
-import DooverseItems from ${devAddress}
+import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc"
+import FungibleToken from "../cadence/contracts/standard/FungibleToken.cdc"
+import DooverseItems from "./DooverseItems.cdc"
 
 // DooverseNFTStorefront
 //
@@ -8,12 +8,14 @@ import DooverseItems from ${devAddress}
 //
 //  1. The admin is the only one that can (1) create listings and (2) remove *active* listings.
 //
-//  2. The admin can remove a listing and set its "purchased" status to either true or false (
-//     helps with fiat purchases).
+//  2. The admin can remove a listing and set its "purchased" status to either true or false 
+//     (helps with fiat purchases).
 //
 //  3. Listings can now have a price of 0.
 //
 //  4. The admin can sell NFTs in groups of packs, and each pack can be further grouped under a set.
+//     In other words, this contract uses a twist on data sharding, which allows the admin to store
+//     more listings than the default storefront contract.
 //
 //  5. NFTs are minted directly to the user once a listing is purchased. When an admin creates a listing,
 //     he/she will provide a list of NFT metadata dictionaries. The data in these dictionaries will 
@@ -28,6 +30,10 @@ import DooverseItems from ${devAddress}
 //  6. Users who install a storefront can only view and purchase the admin's listings. Once the
 //     user purchases a listing from the Admin, they can re-sell their newly bought NFTs using 
 //     the general-purpose Flow NFTStorefront contract.
+//
+//  7. A pack of NFTs can only be linked to one listing. However, each listing consists of an 
+//     array of payment options which specifies the fungible tokens that can be used to purchase
+//     the pack of NFTs along with other data such as the price and sale cut distribution.
 //
 // Besides that, this contract is mostly the same. Each account that wants to buy packs of NFTs
 // from the admin account installs a Storefront. There is one Storefront per account, it handles 
@@ -80,14 +86,20 @@ pub contract DooverseNFTStorefront {
     setID: String,
     packID: String,
     metadatas: [{String: String}],
-    ftVaultType: Type,
-    price: UFix64
+    ftVaultTypes: [Type],
+    prices: [UFix64]
   )
 
   // ListingCompleted
-  // The listing has been resolved. It has either been purchased, or removed and destroyed.
+  // The listing has been completed. It has either been purchased, or removed and destroyed.
   //
   pub event ListingCompleted(packID: String, storefrontResourceID: UInt64, purchased: Bool)
+
+  // ListingResolved
+  // The listing has been resolved. It has either been purchased, or removed and destroyed.
+  // We need this event to distinguish between remove() and resolve() in the storefront maneger.
+  //
+  pub event ListingResolved(packID: String, storefrontResourceID: UInt64, purchased: Bool)
 
   // StorefrontStoragePath
   // The location in storage that a Storefront resource should be located.
@@ -128,25 +140,13 @@ pub contract DooverseNFTStorefront {
     }
   }
 
-
-  // ListingDetails
-  // A struct containing a Listing's data.
+  // PaymentOption
+  // A struct that stores payment information about a listing. One listing
+  // can have many payment options. When a user purchases a listing, they 
+  // must provide a payment vault that can be used to satisfy exactly one 
+  // of the payment options for the listing.
   //
-  pub struct ListingDetails {
-    // The Storefront that the Listing is stored in.
-    // Note that this resource cannot be moved to a different Storefront,
-    // so this is OK. If we ever make it so that it *can* be moved,
-    // this should be revisited.
-    pub var storefrontID: UInt64
-
-    // Whether this listing has been purchased or not.
-    pub var purchased: Bool
-
-    // The pack ID.
-    pub let packID: String
-
-    // The metadata of the NFTs that will be minted.
-    pub let metadatas: [{String: String}]
+  pub struct PaymentOption {
 
     // The Type of the FungibleToken that payments must be made in.
     pub let salePaymentVaultType: Type
@@ -157,26 +157,13 @@ pub contract DooverseNFTStorefront {
     // This specifies the division of payment between recipients.
     pub let saleCuts: [SaleCut]
 
-    // setToPurchased
-    // Irreversibly set this listing as purchased.
-    //
-    access(contract) fun setToPurchased() {
-      self.purchased = true
-    }
-
     // initializer
     //
     init(
-      packID: String,
-      metadatas: [{String: String}],
       salePaymentVaultType: Type,
-      saleCuts: [SaleCut],
-      storefrontID: UInt64
+      saleCuts: [SaleCut]
     ) {
-      self.packID = packID
-      self.storefrontID = storefrontID
-      self.purchased = false
-      self.metadatas = metadatas
+
       self.salePaymentVaultType = salePaymentVaultType
 
       // Store the cuts
@@ -197,6 +184,52 @@ pub contract DooverseNFTStorefront {
 
       // Store the calculated sale price
       self.salePrice = salePrice
+
+    }
+  }
+
+  // ListingDetails
+  // A struct containing a Listing's data.
+  //
+  pub struct ListingDetails {
+    // The Storefront that the Listing is stored in.
+    // Note that this resource cannot be moved to a different Storefront,
+    // so this is OK. If we ever make it so that it *can* be moved,
+    // this should be revisited.
+    pub var storefrontID: UInt64
+
+    // Whether this listing has been purchased or not.
+    pub var purchased: Bool
+
+    // The pack ID.
+    pub let packID: String
+
+    // The metadata of the NFTs that will be minted.
+    pub let metadatas: [{String: String}]
+
+    // An array of valid payment methods.
+    pub let paymentOptions: [PaymentOption]
+
+    // setToPurchased
+    // Irreversibly set this listing as purchased.
+    //
+    access(contract) fun setToPurchased() {
+      self.purchased = true
+    }
+
+    // initializer
+    //
+    init(
+      packID: String,
+      metadatas: [{String: String}],
+      paymentOptions: [PaymentOption],
+      storefrontID: UInt64
+    ) {
+      self.packID = packID
+      self.storefrontID = storefrontID
+      self.purchased = false
+      self.metadatas = metadatas
+      self.paymentOptions = paymentOptions
     }
   }
 
@@ -226,6 +259,19 @@ pub contract DooverseNFTStorefront {
     // The simple (non-Capability, non-complex) details of the sale.
     access(self) let details: ListingDetails
 
+    // findValidPaymentOption
+    // Finds a payment option that matches the given type and balance.
+    access(self) fun findValidPaymentOption(vaultType: Type, balance: UFix64): PaymentOption? {
+      for paymentOption in self.details.paymentOptions {
+        if (
+          vaultType == paymentOption.salePaymentVaultType && balance == paymentOption.salePrice
+        ) {
+          return paymentOption
+        }
+      }
+      return nil
+    }
+
     // getDetails
     // Get the details of the current state of the Listing as a struct.
     // This avoids having more public variables and getter methods for them, and plays
@@ -246,8 +292,12 @@ pub contract DooverseNFTStorefront {
       pre {
         nftCollectionCapability.borrow() != nil: "Cannot borrow nftCollectionCapability"
         self.details.purchased == false: "listing has already been purchased"
-        payment.isInstance(self.details.salePaymentVaultType): "payment vault is not requested fungible token"
-        payment.balance == self.details.salePrice: "payment vault does not contain requested price"
+      }
+
+      // Find a valid payment option
+      let option = self.findValidPaymentOption(vaultType: payment.getType(), balance: payment.balance)
+      if option == nil {
+        panic("Could not find a valid payment option")
       }
 
       // Make sure the listing cannot be purchased again
@@ -269,7 +319,7 @@ pub contract DooverseNFTStorefront {
       var residualReceiver: &{FungibleToken.Receiver}? = nil
 
       // Pay each beneficiary their amount of the payment.
-      for cut in self.details.saleCuts {
+      for cut in option!.saleCuts {
         if let receiver = cut.receiver.borrow() {
           let paymentCut <- payment.withdraw(amount: cut.amount)
           receiver.deposit(from: <- paymentCut)
@@ -299,16 +349,14 @@ pub contract DooverseNFTStorefront {
     init(
       packID: String,
       metadatas: [{String: String}],
-      salePaymentVaultType: Type,
-      saleCuts: [SaleCut],
+      paymentOptions: [PaymentOption],
       storefrontID: UInt64
     ) {
       // Store the sale information
       self.details = ListingDetails(
         packID: packID,
         metadatas: metadatas,
-        salePaymentVaultType: salePaymentVaultType,
-        saleCuts: saleCuts,
+        paymentOptions: paymentOptions,
         storefrontID: storefrontID
       )
     }
@@ -387,11 +435,6 @@ pub contract DooverseNFTStorefront {
       let details = listing.getDetails()
       assert(details.purchased == true, message: "listing is not purchased, only admin can remove")
       destroy listing
-      emit ListingCompleted(
-        packID: details.packID,
-        storefrontResourceID: details.storefrontID,
-        purchased: details.purchased
-      )
       if (setListings.length == 0) {
         destroy setListings
       } else {
@@ -420,8 +463,7 @@ pub contract DooverseNFTStorefront {
       setID: String,
       packID: String,
       metadatas: [{String: String}],
-      salePaymentVaultType: Type,
-      saleCuts: [SaleCut]
+      paymentOptions: [PaymentOption],
     ): String
     // removeListing
     // Allows the Storefront owner to remove any sale listing, acepted or not.
@@ -445,23 +487,20 @@ pub contract DooverseNFTStorefront {
       setID: String,
       packID: String,
       metadatas: [{String: String}],
-      salePaymentVaultType: Type,
-      saleCuts: [SaleCut]
+      paymentOptions: [PaymentOption],
     ): String {
       let listing <- create Listing(
         packID: packID,
         metadatas: metadatas,
-        salePaymentVaultType: salePaymentVaultType,
-        saleCuts: saleCuts,
+        paymentOptions: paymentOptions,
         storefrontID: self.uuid
       )
-
-      let listingPrice = listing.getDetails().salePrice
 
       // Add the new listing to the dictionary.
       if (DooverseNFTStorefront.listings.containsKey(setID)) {
         let setListings <- DooverseNFTStorefront.listings.remove(key: setID)!
         if setListings.containsKey(packID) {
+          destroy listing
           panic("packID already exists")
         } else {
           let oldListing <- setListings[packID] <-! listing
@@ -474,13 +513,21 @@ pub contract DooverseNFTStorefront {
         destroy oldSetListing
       }
 
+      // Collect vault types and their corresponding prices
+      let vaultTypes: [Type] = []
+      let prices: [UFix64] = []
+      for paymentOption in paymentOptions {
+        vaultTypes.append(paymentOption.salePaymentVaultType)
+        prices.append(paymentOption.salePrice)
+      }
+
       emit ListingAvailable(
         storefrontAddress: self.owner?.address!,
         setID: setID,
         packID: packID,
         metadatas: metadatas,
-        ftVaultType: salePaymentVaultType,
-        price: listingPrice
+        ftVaultTypes: vaultTypes,
+        prices: prices
       )
 
       return packID
@@ -514,7 +561,7 @@ pub contract DooverseNFTStorefront {
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       destroy listing
-      emit ListingCompleted(
+      emit ListingResolved(
         packID: details.packID,
         storefrontResourceID: details.storefrontID,
         purchased: wasPurchased
