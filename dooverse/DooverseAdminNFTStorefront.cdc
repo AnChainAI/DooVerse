@@ -97,9 +97,9 @@ pub contract DooverseAdminNFTStorefront {
 
   // ListingResolved
   // The listing has been resolved. It has either been purchased, or removed and destroyed.
-  // We need this event to distinguish between remove() and resolve() in the storefront manager.
+  // We need this event to distinguish between remove() and resolve() in the storefront maneger.
   //
-  pub event ListingResolved(packID: String, storefrontResourceID: UInt64, purchased: Bool)
+  pub event ListingResolved(packID: String, storefrontResourceID: UInt64, purchased: Bool, metadata: {String:String})
 
   // StorefrontStoragePath
   // The location in storage that a Storefront resource should be located.
@@ -472,7 +472,7 @@ pub contract DooverseAdminNFTStorefront {
     // resolveListing
     // Allows the Storefront owner to remove any sale listing, acepted or not, and resolve its puchase status.
     //
-    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool)
+    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String})
   }
 
   // AdminStorefront
@@ -556,7 +556,7 @@ pub contract DooverseAdminNFTStorefront {
     // resolveListing
     // Remove a Listing from the collection, mark it as either purchased or un-purchased, and destroy it.
     //
-    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool) {
+    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String}) {
       let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
@@ -564,7 +564,8 @@ pub contract DooverseAdminNFTStorefront {
       emit ListingResolved(
         packID: details.packID,
         storefrontResourceID: details.storefrontID,
-        purchased: wasPurchased
+        purchased: wasPurchased,
+        metadata: metadata
       )
       if (setListings.length == 0) {
         destroy setListings
