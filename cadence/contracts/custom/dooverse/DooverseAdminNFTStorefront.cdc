@@ -1,5 +1,5 @@
-import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc"
-import FungibleToken from "../cadence/contracts/standard/FungibleToken.cdc"
+import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
+import FungibleToken from "../../standard/FungibleToken.cdc"
 import DooverseItems from "./DooverseItems.cdc"
 
 // DooverseAdminNFTStorefront

@@ -12,8 +12,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
-import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc"
-import FungibleToken from "../cadence/contracts/standard/FungibleToken.cdc"
+import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
+import FungibleToken from "../../standard/FungibleToken.cdc"
 import CryptoPiggo from "./CryptoPiggo.cdc"
 
 // What's the difference between this contract and the general-purpose 

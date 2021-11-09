@@ -12,12 +12,12 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
-import NonFungibleToken from "../cadence/contracts/standard/NonFungibleToken.cdc"
+import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 
-// CryptoPiggoVoucher
-// NFT items for Crypto Piggo Vouchers!
+// CryptoPiggo
+// NFT items for Crypto Piggos!
 //
-pub contract CryptoPiggoVoucher: NonFungibleToken {
+pub contract CryptoPiggo: NonFungibleToken {
 
     // Events
     //
@@ -33,9 +33,19 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     pub let MinterStoragePath: StoragePath
 
     // totalSupply
-    // The total number of CryptoPiggoVouchers that have been minted
+    // The total number of CryptoPiggo that have been minted
     //
     pub var totalSupply: UInt64
+
+    // maxSupply
+    // The maximum number of CryptoPiggo that can be minted
+    //
+    pub let maxSupply: UInt64
+
+    // idToAddress
+    // Maps each item ID to its current owner
+    //
+    access(self) let idToAddress: [Address]
 
     // NFT
     // A Crypto Piggo as an NFT
@@ -51,6 +61,12 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
             return self.metadata
         }
 
+        // destructor
+        //
+        destroy() {
+            panic("Cannot delete NFT")
+        }
+
         // initializer
         //
         init(initID: UInt64, initMeta: {String: String}) {
@@ -59,15 +75,15 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         }
     }
 
-    // This is the interface that users can cast their CryptoPiggoVoucher Collection as
-    // to allow others to deposit CryptoPiggoVoucher into their Collection. It also allows for reading
-    // the details of CryptoPiggoVoucher in the Collection.
-    pub resource interface CryptoPiggoVoucherCollectionPublic {
+    // This is the interface that users can cast their CryptoPiggo Collection as
+    // to allow others to deposit CryptoPiggo into their Collection. It also allows for reading
+    // the details of CryptoPiggo in the Collection.
+    pub resource interface CryptoPiggoCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun getLength(): Int
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &CryptoPiggo.NFT? {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
@@ -78,9 +94,9 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     }
 
     // Collection
-    // A collection of CryptoPiggoVoucher NFTs owned by an account
+    // A collection of CryptoPiggo NFTs owned by an account
     //
-    pub resource Collection: CryptoPiggoVoucherCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: CryptoPiggoCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an 'UInt64' ID field
         //
@@ -102,12 +118,15 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         // and adds the ID to the id array
         //
         pub fun deposit(token: @NonFungibleToken.NFT) {
-            let token <- token as! @CryptoPiggoVoucher.NFT
+            let token <- token as! @CryptoPiggo.NFT
 
             let id: UInt64 = token.id
 
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
+
+            // update owner
+            CryptoPiggo.idToAddress[id] = self.owner!.address
 
             emit Deposit(id: id, to: self.owner!.address)
 
@@ -137,14 +156,14 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         }
 
         // borrowItem
-        // Gets a reference to an NFT in the collection as a CryptoPiggoVoucher,
+        // Gets a reference to an NFT in the collection as a CryptoPiggo,
         // exposing all of its fields.
-        // This is safe as there are no functions that can be called on the CryptoPiggoVoucher.
+        // This is safe as there are no functions that can be called on the CryptoPiggo.
         //
-        pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &CryptoPiggo.NFT? {
             if self.ownedNFTs[id] != nil {
                 let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &CryptoPiggoVoucher.NFT
+                return ref as! &CryptoPiggo.NFT
             } else {
                 return nil
             }
@@ -184,27 +203,52 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
 		// and deposit it in the recipients collection using their collection reference
         //
 		pub fun mintNFT(recipient: Address, initMetadata: {String: String}) {
-            let nftID = CryptoPiggoVoucher.totalSupply
-            let receiver = getAccount(recipient)
-                .getCapability(CryptoPiggoVoucher.CollectionPublicPath)!
-                .borrow<&{NonFungibleToken.CollectionPublic}>()
-                ?? panic("Could not get receiver reference to the NFT Collection")
-            emit Minted(id: nftID, initMeta: initMetadata)
-            CryptoPiggoVoucher.totalSupply = nftID + (1 as UInt64)
-            receiver.deposit(token: <-create CryptoPiggoVoucher.NFT(initID: nftID, initMeta: initMetadata))
+            let nftID = CryptoPiggo.totalSupply
+            if nftID < CryptoPiggo.maxSupply {
+                let receiver = getAccount(recipient)
+                    .getCapability(CryptoPiggo.CollectionPublicPath)!
+                    .borrow<&{NonFungibleToken.CollectionPublic}>()
+                    ?? panic("Could not get receiver reference to the NFT Collection")
+                emit Minted(id: nftID, initMeta: initMetadata)
+                CryptoPiggo.idToAddress.append(recipient)
+                CryptoPiggo.totalSupply = nftID + (1 as UInt64)
+                receiver.deposit(token: <-create CryptoPiggo.NFT(initID: nftID, initMeta: initMetadata))
+            } else {
+                panic("No more piggos can be minted")
+            }
 		}
 	}
+
+    // getOwner
+    // Gets the current owner of the given item
+    //
+    pub fun getOwner(itemID: UInt64): Address? {
+        if itemID >= 0 && itemID < self.maxSupply {
+            if (itemID < CryptoPiggo.totalSupply) {
+                return CryptoPiggo.idToAddress[itemID]
+            } else {
+                return nil
+            }
+        }
+        return nil
+    }
 
     // initializer
     //
 	init() {
         // Set our named paths
-        self.CollectionStoragePath = /storage/CryptoPiggoVoucherCollection
-        self.CollectionPublicPath = /public/CryptoPiggoVoucherCollection
-        self.MinterStoragePath = /storage/CryptoPiggoVoucherMinter
+        self.CollectionStoragePath = /storage/CryptoPiggoCollection
+        self.CollectionPublicPath = /public/CryptoPiggoCollection
+        self.MinterStoragePath = /storage/CryptoPiggoMinter
 
         // Initialize the total supply
         self.totalSupply = 0
+
+        // Initialize the max supply
+        self.maxSupply = 10000
+
+        // Initalize mapping from ID to address
+        self.idToAddress = []
 
         // Create a Minter resource and save it to storage
         let minter <- create NFTMinter()
