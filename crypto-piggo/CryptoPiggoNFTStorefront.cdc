@@ -543,8 +543,8 @@ pub contract CryptoPiggoNFTStorefront {
   }
 
   init() {
-    self.StorefrontStoragePath = /storage/NFTStorefront
-    self.StorefrontPublicPath = /public/NFTStorefront
+    self.StorefrontStoragePath = /storage/CryptoPiggoNFTStorefront
+    self.StorefrontPublicPath = /public/CryptoPiggoNFTStorefront
 
     emit NFTStorefrontInitialized()
   }
