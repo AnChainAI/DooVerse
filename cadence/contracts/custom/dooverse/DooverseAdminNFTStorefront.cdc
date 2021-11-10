@@ -6,18 +6,22 @@ import DooverseItems from "./DooverseItems.cdc"
 //
 // What's the difference between this contract and the general-purpose NFTStorefront contract?
 //
-//  1. The admin is the only one that can (1) create listings and (2) remove *active* listings.
+//  1. The storefront's admin (i.e. the account that this contract is deployed to) is the only entity that 
+//     can install this storefront.
 //
-//  2. The admin can remove a listing and set its "purchased" status to either true or false 
-//     (helps with fiat purchases).
+//  2. Each account that wants to buy packs of NFTs from the admin account can borrow a public capability to
+//     the admin's storefront and call the purchase function (just like in the standard storefront contract).
 //
-//  3. Listings can now have a price of 0.
+//  3. The admin can "resolve" a listing, which removes the listing from the storefront and assigns its 
+//     "purchased" status to either true or false (this functionality helps with fiat purchases).
 //
-//  4. The admin can sell NFTs in groups of packs, and each pack can be further grouped under a set.
+//  4. Listings can now have a price of 0.
+//
+//  5. The admin can sell NFTs in groups of packs, and each pack can be further grouped under a set.
 //     In other words, this contract uses a twist on data sharding, which allows the admin to store
 //     more listings than the default storefront contract.
 //
-//  5. NFTs are minted directly to the user once a listing is purchased. When an admin creates a listing,
+//  6. NFTs are minted directly to the user once a listing is purchased. When an admin creates a listing,
 //     he/she will provide a list of NFT metadata dictionaries. The data in these dictionaries will 
 //     become the NFT metadata when the listing is accepted. In the general-purpose NFTStorefront, 
 //     NFTs need to be minted before they can be listed. This can be a bit constraining. To see why, 
@@ -27,21 +31,17 @@ import DooverseItems from "./DooverseItems.cdc"
 //     anything. Plus, if we wanted to list more NFTs for sale to make up for our tragic loss, we
 //     would need to get even more FLOW tokens and use up even more space!
 //
-//  6. Users who install a storefront can only view and purchase the admin's listings. Once the
-//     user purchases a listing from the Admin, they can re-sell their newly bought NFTs using 
-//     the general-purpose Flow NFTStorefront contract.
+//  7. Once the user purchases a listing from the Admin, they can re-sell their newly bought NFTs using 
+//     the general-purpose Flow NFTStorefront contract (or any other one for that matter).
 //
-//  7. A pack of NFTs can only be linked to one listing. However, each listing consists of an 
+//  8. A pack of NFTs can only be linked to one listing. However, each listing consists of an 
 //     array of payment options which specifies the fungible tokens that can be used to purchase
 //     the pack of NFTs along with other data such as the price and sale cut distribution.
 //
-// Besides that, this contract is mostly the same. Each account that wants to buy packs of NFTs
-// from the admin account installs a Storefront. There is one Storefront per account, it handles 
-// purchases of all NFT types for that account.
-//
-// Each Listing can have one or more "cut"s of the sale price that goes to one or more addresses. 
-// Cuts can be used to pay listing fees or other considerations. Each NFT may be listed in one or 
-// more Listings, the validity of each Listing can easily be checked.
+// Besides that, this contract is mostly the same. Each Listing can have one or more "cut"s of 
+// the sale price that goes to one or more addresses. Cuts can be used to pay listing fees or 
+// other considerations. Each NFT may be listed in one or more Listings, the validity of each 
+// Listing can easily be checked.
 // 
 // Purchasers can watch for Listing events and check the NFT type and ID to see if they wish to buy
 // the listed item. Marketplaces and other aggregators can watch for Listing events and list items 
@@ -108,13 +108,6 @@ pub contract DooverseAdminNFTStorefront {
   // StorefrontPublicPath
   // The public location for a Storefront link.
   pub let StorefrontPublicPath: PublicPath
-
-  // AdminStorefrontStoragePath
-  // The location in storage that an AdminStorefront resource should be located.
-  pub let AdminStorefrontStoragePath: StoragePath
-
-  // A dictionary of set IDs to a dictionary of pack IDs to Listing resources.
-  access(self) var listings: @{String : {String: Listing}}
 
   // SaleCut
   // A struct representing a recipient that must be sent a certain amount
@@ -374,16 +367,47 @@ pub contract DooverseAdminNFTStorefront {
     pub fun cleanup(setID: String, packID: String)
   }
 
+  // StorefrontManager
+  // An interface for adding and removing Listings within a Storefront,
+  // intended for use by the Storefront's owner.
+  //
+  pub resource interface StorefrontManager {
+
+    // createListing
+    // Allows the Storefront owner to create and insert Listings.
+    //
+    pub fun createListing(
+      setID: String,
+      packID: String,
+      metadatas: [{String: String}],
+      paymentOptions: [PaymentOption],
+    ): String
+
+    // removeListing
+    // Allows the Storefront owner to remove any sale listing, acepted or not.
+    //
+    pub fun removeListing(setID: String, packID: String)
+
+    // resolveListing
+    // Allows the Storefront owner to remove any sale listing, acepted or not, and resolve its puchase status.
+    //
+    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String})
+
+  }
+
   // Storefront
   // A resource that allows its owner to query admin listings and purchase them.
   //
-  pub resource Storefront: StorefrontPublic {
+  pub resource Storefront: StorefrontPublic, StorefrontManager {
+
+    // A dictionary of set IDs to a dictionary of pack IDs to Listing resources.
+    access(self) var listings: @{String : {String: Listing}}
 
     // getSetIDs
     // Returns an array of set IDs.
     //
     pub fun getSetIDs(): [String] {
-      return DooverseAdminNFTStorefront.listings.keys
+      return self.listings.keys
     }
 
     // getPackIDs
@@ -401,8 +425,8 @@ pub contract DooverseAdminNFTStorefront {
     // Returns a read-only view of the listings for the given setID if it is contained by this collection.
     //
     pub fun borrowListings(setID: String): &{String: Listing{ListingPublic}}? {
-      if DooverseAdminNFTStorefront.listings[setID] != nil {
-        return &DooverseAdminNFTStorefront.listings[setID] as! &{String: Listing{ListingPublic}}
+      if self.listings[setID] != nil {
+        return &self.listings[setID] as! &{String: Listing{ListingPublic}}
       } else {
         return nil
       }
@@ -428,9 +452,9 @@ pub contract DooverseAdminNFTStorefront {
     //
     pub fun cleanup(setID: String, packID: String) {
       pre {
-        DooverseAdminNFTStorefront.listings.containsKey(setID): "Set ID does not exist"
+        self.listings.containsKey(setID): "Set ID does not exist"
       }
-      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
+      let setListings <- self.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       assert(details.purchased == true, message: "listing is not purchased, only admin can remove")
@@ -438,49 +462,11 @@ pub contract DooverseAdminNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseAdminNFTStorefront.listings[setID] <-! setListings
+        self.listings[setID] <-! setListings
       }
     }
 
-    // destructor
-    //
-    destroy () {
-      // Let event consumers know that this storefront will no longer exist.
-      emit StorefrontDestroyed(storefrontResourceID: self.uuid)
-    }
-
-  }
-
-  // StorefrontManager
-  // An interface for adding and removing Listings within a Storefront,
-  // intended for use by the Storefront's owner.
-  //
-  pub resource interface StorefrontManager {
     // createListing
-    // Allows the Storefront owner to create and insert Listings.
-    //
-    pub fun createListing(
-      setID: String,
-      packID: String,
-      metadatas: [{String: String}],
-      paymentOptions: [PaymentOption],
-    ): String
-    // removeListing
-    // Allows the Storefront owner to remove any sale listing, acepted or not.
-    //
-    pub fun removeListing(setID: String, packID: String)
-    // resolveListing
-    // Allows the Storefront owner to remove any sale listing, acepted or not, and resolve its puchase status.
-    //
-    pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String})
-  }
-
-  // AdminStorefront
-  // A resource that allows its owner to create and remove listings.
-  //
-  pub resource AdminStorefront: StorefrontManager {
-
-    // insert
     // Create and publish a Listing for a pack of NFTs.
     //
     pub fun createListing(
@@ -497,8 +483,8 @@ pub contract DooverseAdminNFTStorefront {
       )
 
       // Add the new listing to the dictionary.
-      if (DooverseAdminNFTStorefront.listings.containsKey(setID)) {
-        let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
+      if (self.listings.containsKey(setID)) {
+        let setListings <- self.listings.remove(key: setID)!
         if setListings.containsKey(packID) {
           destroy listing
           panic("packID already exists")
@@ -506,9 +492,9 @@ pub contract DooverseAdminNFTStorefront {
           let oldListing <- setListings[packID] <-! listing
           destroy oldListing        
         }
-        DooverseAdminNFTStorefront.listings[setID] <-! setListings
+        self.listings[setID] <-! setListings
       } else {
-        let oldSetListing <- DooverseAdminNFTStorefront.listings[setID] <- { packID: <- listing }
+        let oldSetListing <- self.listings[setID] <- { packID: <- listing }
         // Note that oldSetListing will always be nil, but we have to handle it.
         destroy oldSetListing
       }
@@ -537,7 +523,7 @@ pub contract DooverseAdminNFTStorefront {
     // Remove a Listing from the collection and destroy it.
     //
     pub fun removeListing(setID: String, packID: String) {
-      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
+      let setListings <- self.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       destroy listing
@@ -549,7 +535,7 @@ pub contract DooverseAdminNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseAdminNFTStorefront.listings[setID] <-! setListings      
+        self.listings[setID] <-! setListings      
       }
     }
 
@@ -557,7 +543,7 @@ pub contract DooverseAdminNFTStorefront {
     // Remove a Listing from the collection, mark it as either purchased or un-purchased, and destroy it.
     //
     pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String}) {
-      let setListings <- DooverseAdminNFTStorefront.listings.remove(key: setID)!
+      let setListings <- self.listings.remove(key: setID)!
       let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
       let details = listing.getDetails()
       destroy listing
@@ -570,25 +556,41 @@ pub contract DooverseAdminNFTStorefront {
       if (setListings.length == 0) {
         destroy setListings
       } else {
-        DooverseAdminNFTStorefront.listings[setID] <-! setListings      
+        self.listings[setID] <-! setListings      
       }
     }
 
-  }
+    // destructor
+    //
+    destroy () {
+      // Let event consumers know that this storefront will no longer exist.
+      emit StorefrontDestroyed(storefrontResourceID: self.uuid)
+    }
+    
+    // initializer
+    //
+    init() {
+      self.listings <- {}
 
-  // createStorefront
-  // Make creating a Storefront publicly accessible.
-  //
-  pub fun createStorefront(): @Storefront {
-    return <- create Storefront()
+      // Let event consumers know that this storefront exists
+      emit StorefrontInitialized(storefrontResourceID: self.uuid)
+    }
+
   }
 
   init() {
     self.StorefrontStoragePath = /storage/DooverseAdminNFTStorefront
     self.StorefrontPublicPath = /public/DooverseAdminNFTStorefront
-    self.AdminStorefrontStoragePath = /storage/AdminDooverseAdminNFTStorefront
-    self.listings <- {}
-    self.account.save(<- create AdminStorefront(), to: self.AdminStorefrontStoragePath)
+
+    // Create a new empty Storefront
+    let storefront <- create Storefront()
+    
+    // Save it to the admin account
+    self.account.save(<- storefront, to: self.StorefrontStoragePath)
+
+    // Create a public capability for the Storefront in the admin account
+    self.account.link<&Storefront{StorefrontPublic}>(self.StorefrontPublicPath, target: self.StorefrontStoragePath)
+
     emit NFTStorefrontInitialized()
   }
 }
