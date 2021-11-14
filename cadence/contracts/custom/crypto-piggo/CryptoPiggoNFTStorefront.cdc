@@ -14,6 +14,7 @@
 **/
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 import FungibleToken from "../../standard/FungibleToken.cdc"
+import CryptoPiggoVoucher from "./CryptoPiggoVoucher.cdc"
 import CryptoPiggo from "./CryptoPiggo.cdc"
 
 // What's the difference between this contract and the general-purpose 
@@ -23,15 +24,16 @@ import CryptoPiggo from "./CryptoPiggo.cdc"
 //
 //  2. Only CryptoPiggo NFTs can be sold on the marketplace.
 //
-//  3. A CryptoPiggo can only be apart of ONE listing. Creating 
-//     multiple listings for the same CryptoPiggo is not allowed.
-//     However, each listing consists of an array of payment options 
-//     which specifies the fungible tokens that can be used to purchase
-//     the NFT along with other data such as the price and sale cut 
-//     distribution.
+//  3. Vouchers have been included in the purchase() function.
 //
-//  4. Listing resource IDs have been replaced with CryptoPiggo IDs
-//     for simplicity.
+//  4. A CryptoPiggo can only be apart of ONE listing. Creating multiple 
+//     listings for the same CryptoPiggo is not allowed. However, each 
+//     listing consists of an array of payment options which specifies 
+//     the fungible tokens that can be used to purchase the NFT along 
+//     with other data such as the price and sale cut distribution.
+//
+//  5. Listing resource IDs have been replaced with CryptoPiggo IDs (this
+//     makes it a lot easier to refer to a listing for a specific piggo).
 //
 // Besides that, this contract is mostly the same. Each account that wants
 // to list NFTs for sale installs a Storefront, and lists individual sales 
@@ -226,7 +228,7 @@ pub contract CryptoPiggoNFTStorefront {
     // Purchase the listing, buying the token.
     // This pays the beneficiaries and returns the token to the buyer.
     //
-    pub fun purchase(payment: @FungibleToken.Vault): @NonFungibleToken.NFT
+    pub fun purchase(payment: @FungibleToken.Vault, voucher: @NonFungibleToken.NFT): @NonFungibleToken.NFT
 
     // getDetails
     //
@@ -287,9 +289,10 @@ pub contract CryptoPiggoNFTStorefront {
     // Purchase the listing, buying the token.
     // This pays the beneficiaries and returns the token to the buyer.
     //
-    pub fun purchase(payment: @FungibleToken.Vault): @NonFungibleToken.NFT {
+    pub fun purchase(payment: @FungibleToken.Vault, voucher: @NonFungibleToken.NFT): @NonFungibleToken.NFT {
       pre {
         self.details.purchased == false: "listing has already been purchased"
+        voucher.isInstance(Type<@CryptoPiggoVoucher.NFT>()): "voucher is of incorrect type"
       }
 
       // Find a valid payment option
@@ -297,6 +300,9 @@ pub contract CryptoPiggoNFTStorefront {
       if option == nil {
         panic("Could not find a valid payment option")
       }
+
+      // Consume the voucher
+      destroy voucher
 
       // Make sure the listing cannot be purchased again.
       self.details.setToPurchased()
