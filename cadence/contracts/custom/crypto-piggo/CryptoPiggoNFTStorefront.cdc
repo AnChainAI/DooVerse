@@ -292,7 +292,7 @@ pub contract CryptoPiggoNFTStorefront {
     pub fun purchase(payment: @FungibleToken.Vault, voucher: @NonFungibleToken.NFT): @NonFungibleToken.NFT {
       pre {
         self.details.purchased == false: "listing has already been purchased"
-        voucher.isInstance(Type<@CryptoPiggoVoucher.NFT>()): "voucher is of incorrect type"
+        voucher.isInstance(Type<@CryptoPiggoVoucher.NFT>()): "voucher has incorrect type"
       }
 
       // Find a valid payment option
