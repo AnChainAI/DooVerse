@@ -20,36 +20,34 @@ import CryptoPiggo from "./CryptoPiggo.cdc"
 // What's the difference between this contract and the general-purpose 
 // NFTStorefront contract?
 //
-//  1. Listings can now have a price of 0.
+//  1. The storefront's admin (i.e. the account that this contract is 
+//     deployed to) is the only entity that can install this storefront.
 //
-//  2. Only CryptoPiggo NFTs can be sold on the marketplace.
+//  2. Listings can now have a price of 0.
 //
-//  3. Vouchers have been included in the purchase() function.
+//  3. Only CryptoPiggo NFTs can be sold on the marketplace.
 //
-//  4. A CryptoPiggo can only be apart of ONE listing. Creating multiple 
+//  4. Vouchers have been included in the purchase() function.
+//
+//  5. A CryptoPiggo can only be apart of ONE listing. Creating multiple 
 //     listings for the same CryptoPiggo is not allowed. However, each 
 //     listing consists of an array of payment options which specifies 
 //     the fungible tokens that can be used to purchase the NFT along 
 //     with other data such as the price and sale cut distribution.
 //
-//  5. Listing resource IDs have been replaced with CryptoPiggo IDs (this
+//  6. Listing resource IDs have been replaced with CryptoPiggo IDs (this
 //     makes it a lot easier to refer to a listing for a specific piggo).
 //
-// Besides that, this contract is mostly the same. Each account that wants
-// to list NFTs for sale installs a Storefront, and lists individual sales 
-// within that Storefront as Listings. There is one Storefront per account, 
-// it handles sales of CryptoPiggo NFTs ONLY for that account.
-//
-// Each Listing can have one or more "cut"s of the sale price that
-// goes to one or more addresses. Cuts can be used to pay listing fees
-// or other considerations.
+// Besides that, this contract is mostly the same. Each Listing can have
+// one or more "cut"s of the sale price that goes to one or more addresses. 
+// Cuts can be used to pay listing fees or other considerations.
 // 
 // Purchasers can watch for Listing events and check the NFT type and
 // ID to see if they wish to buy the listed item.
 // Marketplaces and other aggregators can watch for Listing events
 // and list items of interest.
 //
-pub contract CryptoPiggoNFTStorefront {
+pub contract CryptoPiggoAdminNFTStorefront {
   // NFTStorefrontInitialized
   // This contract has been deployed.
   // Event consumers can now expect events from this contract.
@@ -541,16 +539,18 @@ pub contract CryptoPiggoNFTStorefront {
     }
   }
 
-  // createStorefront
-  // Make creating a Storefront publicly accessible.
-  //
-  pub fun createStorefront(): @Storefront {
-    return <-create Storefront()
-  }
-
   init() {
-    self.StorefrontStoragePath = /storage/CryptoPiggoNFTStorefront
-    self.StorefrontPublicPath = /public/CryptoPiggoNFTStorefront
+    self.StorefrontStoragePath = /storage/CryptoPiggoAdminNFTStorefront
+    self.StorefrontPublicPath = /public/CryptoPiggoAdminNFTStorefront
+
+    // Create a new empty Storefront
+    let storefront <- create Storefront()
+
+    // Save it to the admin account
+    self.account.save(<- storefront, to: self.StorefrontStoragePath)
+
+    // Create a public capability for the Storefront in the admin account
+    self.account.link<&Storefront{StorefrontPublic}>(self.StorefrontPublicPath, target: self.StorefrontStoragePath)
 
     emit NFTStorefrontInitialized()
   }
