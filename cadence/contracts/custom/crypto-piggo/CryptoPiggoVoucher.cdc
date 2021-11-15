@@ -15,7 +15,7 @@
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 
 // CryptoPiggoVoucher
-// NFT items for Crypto Piggo Vouchers!
+// NFT items for CryptoPiggoVoucher!
 //
 pub contract CryptoPiggoVoucher: NonFungibleToken {
 
@@ -33,29 +33,28 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     pub let MinterStoragePath: StoragePath
 
     // totalSupply
-    // The total number of CryptoPiggoVouchers that have been minted
+    // The total number of CryptoPiggoVoucher that have been minted
     //
     pub var totalSupply: UInt64
 
     // NFT
-    // A Crypto Piggo as an NFT
+    // A CryptoPiggoVoucher as an NFT
     //
     pub resource NFT: NonFungibleToken.INFT {
-        // The token's ID
+       // The token's ID
         pub let id: UInt64
-
         // The token's metadata in dict format
         access(self) let metadata: {String: String}
-
-        pub fun getMetadata(): {String: String} {
-            return self.metadata
-        }
-
+        
         // initializer
         //
         init(initID: UInt64, initMeta: {String: String}) {
             self.id = initID
             self.metadata = initMeta
+        }
+
+        pub fun getMetadata(): {String: String} {
+            return self.metadata
         }
     }
 
@@ -65,14 +64,13 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     pub resource interface CryptoPiggoVoucherCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
-        pub fun getLength(): Int
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
                 (result == nil) || (result?.id == id):
-                    "Cannot borrow reference: The ID of the returned reference is incorrect"
+                    "Cannot borrow CryptoPiggoVoucher reference: The ID of the returned reference is incorrect"
             }
         }
     }
@@ -92,13 +90,13 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
             let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
-            emit Withdraw(id: token.id, from: self.owner!.address)
+            emit Withdraw(id: token.id, from: self.owner?.address)
 
             return <-token
         }
 
         // deposit
-        // Takes an NFT and adds it to the collections dictionary
+        // Takes a NFT and adds it to the collections dictionary
         // and adds the ID to the id array
         //
         pub fun deposit(token: @NonFungibleToken.NFT) {
@@ -109,11 +107,11 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
 
-            emit Deposit(id: id, to: self.owner!.address)
+            emit Deposit(id: id, to: self.owner?.address)
 
             destroy oldToken
         }
-        
+
         // getIDs
         // Returns an array of the IDs that are in the collection
         //
@@ -121,15 +119,8 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
             return self.ownedNFTs.keys
         }
 
-        // getLength
-        // Returns the length of the collection
-        //
-        pub fun getLength(): Int {
-            return self.ownedNFTs.length
-        }
-
         // borrowNFT
-        // Gets a reference to an NFT in the collection using its ID
+        // Gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
@@ -138,7 +129,7 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
 
         // borrowItem
         // Gets a reference to an NFT in the collection as a CryptoPiggoVoucher,
-        // exposing all of its fields.
+        // exposing all of its fields (including the typeID).
         // This is safe as there are no functions that can be called on the CryptoPiggoVoucher.
         //
         pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
@@ -151,13 +142,8 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         }
 
         // destructor
-        //
         destroy() {
-            if self.ownedNFTs.length == 0 {
-                destroy self.ownedNFTs
-            } else {
-                panic("Collection must be empty before it can be destroyed.")
-            }
+            destroy self.ownedNFTs
         }
 
         // initializer
@@ -179,19 +165,18 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     // able to mint new NFTs
     //
 	pub resource NFTMinter {
-        // mintNFT
+
+		// mintNFT
         // Mints a new NFT with a new ID
 		// and deposit it in the recipients collection using their collection reference
         //
-		pub fun mintNFT(recipient: Address, initMetadata: {String: String}) {
-            let nftID = CryptoPiggoVoucher.totalSupply
-            let receiver = getAccount(recipient)
-                .getCapability(CryptoPiggoVoucher.CollectionPublicPath)!
-                .borrow<&{NonFungibleToken.CollectionPublic}>()
-                ?? panic("Could not get receiver reference to the NFT Collection")
-            emit Minted(id: nftID, initMeta: initMetadata)
-            CryptoPiggoVoucher.totalSupply = nftID + (1 as UInt64)
-            receiver.deposit(token: <-create CryptoPiggoVoucher.NFT(initID: nftID, initMeta: initMetadata))
+		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, initMetadata: {String: String}) {
+            emit Minted(id: CryptoPiggoVoucher.totalSupply, initMeta: initMetadata)
+
+			// deposit it in the recipient's account using their reference
+			recipient.deposit(token: <-create CryptoPiggoVoucher.NFT(initID: CryptoPiggoVoucher.totalSupply, initMeta: initMetadata))
+
+            CryptoPiggoVoucher.totalSupply = CryptoPiggoVoucher.totalSupply + (1 as UInt64)
 		}
 	}
 
