@@ -14,10 +14,10 @@
 **/
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 
-// CryptoPiggoVoucher
-// NFT items for CryptoPiggoVoucher!
+// AnchainVoucher
+// NFT items for AnchainVoucher!
 //
-pub contract CryptoPiggoVoucher: NonFungibleToken {
+pub contract AnchainVoucher: NonFungibleToken {
 
     // Events
     //
@@ -33,12 +33,12 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     pub let MinterStoragePath: StoragePath
 
     // totalSupply
-    // The total number of CryptoPiggoVoucher that have been minted
+    // The total number of AnchainVoucher that have been minted
     //
     pub var totalSupply: UInt64
 
     // NFT
-    // A CryptoPiggoVoucher as an NFT
+    // A AnchainVoucher as an NFT
     //
     pub resource NFT: NonFungibleToken.INFT {
        // The token's ID
@@ -58,27 +58,27 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         }
     }
 
-    // This is the interface that users can cast their CryptoPiggoVoucher Collection as
-    // to allow others to deposit CryptoPiggoVoucher into their Collection. It also allows for reading
-    // the details of CryptoPiggoVoucher in the Collection.
-    pub resource interface CryptoPiggoVoucherCollectionPublic {
+    // This is the interface that users can cast their AnchainVoucher Collection as
+    // to allow others to deposit AnchainVoucher into their Collection. It also allows for reading
+    // the details of AnchainVoucher in the Collection.
+    pub resource interface AnchainVoucherCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &AnchainVoucher.NFT? {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
                 (result == nil) || (result?.id == id):
-                    "Cannot borrow CryptoPiggoVoucher reference: The ID of the returned reference is incorrect"
+                    "Cannot borrow AnchainVoucher reference: The ID of the returned reference is incorrect"
             }
         }
     }
 
     // Collection
-    // A collection of CryptoPiggoVoucher NFTs owned by an account
+    // A collection of AnchainVoucher NFTs owned by an account
     //
-    pub resource Collection: CryptoPiggoVoucherCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: AnchainVoucherCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an 'UInt64' ID field
         //
@@ -100,7 +100,7 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         // and adds the ID to the id array
         //
         pub fun deposit(token: @NonFungibleToken.NFT) {
-            let token <- token as! @CryptoPiggoVoucher.NFT
+            let token <- token as! @AnchainVoucher.NFT
 
             let id: UInt64 = token.id
 
@@ -128,14 +128,14 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
         }
 
         // borrowItem
-        // Gets a reference to an NFT in the collection as a CryptoPiggoVoucher,
+        // Gets a reference to an NFT in the collection as a AnchainVoucher,
         // exposing all of its fields (including the typeID).
-        // This is safe as there are no functions that can be called on the CryptoPiggoVoucher.
+        // This is safe as there are no functions that can be called on the AnchainVoucher.
         //
-        pub fun borrowItem(id: UInt64): &CryptoPiggoVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &AnchainVoucher.NFT? {
             if self.ownedNFTs[id] != nil {
                 let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &CryptoPiggoVoucher.NFT
+                return ref as! &AnchainVoucher.NFT
             } else {
                 return nil
             }
@@ -171,12 +171,12 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
 		// and deposit it in the recipients collection using their collection reference
         //
 		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, initMetadata: {String: String}) {
-            emit Minted(id: CryptoPiggoVoucher.totalSupply, initMeta: initMetadata)
+            emit Minted(id: AnchainVoucher.totalSupply, initMeta: initMetadata)
 
 			// deposit it in the recipient's account using their reference
-			recipient.deposit(token: <-create CryptoPiggoVoucher.NFT(initID: CryptoPiggoVoucher.totalSupply, initMeta: initMetadata))
+			recipient.deposit(token: <-create AnchainVoucher.NFT(initID: AnchainVoucher.totalSupply, initMeta: initMetadata))
 
-            CryptoPiggoVoucher.totalSupply = CryptoPiggoVoucher.totalSupply + (1 as UInt64)
+            AnchainVoucher.totalSupply = AnchainVoucher.totalSupply + (1 as UInt64)
 		}
 	}
 
@@ -184,9 +184,9 @@ pub contract CryptoPiggoVoucher: NonFungibleToken {
     //
 	init() {
         // Set our named paths
-        self.CollectionStoragePath = /storage/CryptoPiggoVoucherCollection
-        self.CollectionPublicPath = /public/CryptoPiggoVoucherCollection
-        self.MinterStoragePath = /storage/CryptoPiggoVoucherMinter
+        self.CollectionStoragePath = /storage/AnchainVoucherCollection
+        self.CollectionPublicPath = /public/AnchainVoucherCollection
+        self.MinterStoragePath = /storage/AnchainVoucherMinter
 
         // Initialize the total supply
         self.totalSupply = 0

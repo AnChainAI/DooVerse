@@ -1,6 +1,6 @@
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 import FungibleToken from "../../standard/FungibleToken.cdc"
-import CryptoPiggoVoucher from "./CryptoPiggoVoucher.cdc"
+import AnchainVoucher from "../anchain/AnchainVoucher.cdc"
 import CryptoPiggo from "./CryptoPiggo.cdc"
 
 // What's the difference between this contract and the general-purpose 
@@ -106,7 +106,7 @@ pub contract CryptoPiggoAdminNFTStorefront {
 
     // initializer
     //
-    init(receiver: Capability<&{FungibleToken.Receiver}> , amount: UFix64) {
+    init(receiver: Capability<&{FungibleToken.Receiver}>, amount: UFix64) {
       self.receiver = receiver
       self.amount = amount
     }
@@ -276,7 +276,7 @@ pub contract CryptoPiggoAdminNFTStorefront {
     pub fun purchase(payment: @FungibleToken.Vault, voucher: @NonFungibleToken.NFT): @NonFungibleToken.NFT {
       pre {
         self.details.purchased == false: "listing has already been purchased"
-        voucher.isInstance(Type<@CryptoPiggoVoucher.NFT>()): "voucher has incorrect type"
+        voucher.isInstance(Type<@AnchainVoucher.NFT>()): "voucher has incorrect type"
       }
 
       // Find a valid payment option
