@@ -14,10 +14,10 @@
 **/
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 
-// AnchainVoucher
-// NFT items for AnchainVoucher!
+// AnchainNFTVoucher
+// NFT items for AnchainNFTVoucher!
 //
-pub contract AnchainVoucher: NonFungibleToken {
+pub contract AnchainNFTVoucher: NonFungibleToken {
 
     // Events
     //
@@ -33,12 +33,12 @@ pub contract AnchainVoucher: NonFungibleToken {
     pub let MinterStoragePath: StoragePath
 
     // totalSupply
-    // The total number of AnchainVoucher that have been minted
+    // The total number of AnchainNFTVoucher that have been minted
     //
     pub var totalSupply: UInt64
 
     // NFT
-    // A AnchainVoucher as an NFT
+    // A AnchainNFTVoucher as an NFT
     //
     pub resource NFT: NonFungibleToken.INFT {
        // The token's ID
@@ -58,27 +58,27 @@ pub contract AnchainVoucher: NonFungibleToken {
         }
     }
 
-    // This is the interface that users can cast their AnchainVoucher Collection as
-    // to allow others to deposit AnchainVoucher into their Collection. It also allows for reading
-    // the details of AnchainVoucher in the Collection.
-    pub resource interface AnchainVoucherCollectionPublic {
+    // This is the interface that users can cast their AnchainNFTVoucher Collection as
+    // to allow others to deposit AnchainNFTVoucher into their Collection. It also allows for reading
+    // the details of AnchainNFTVoucher in the Collection.
+    pub resource interface AnchainNFTVoucherCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowItem(id: UInt64): &AnchainVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &AnchainNFTVoucher.NFT? {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
                 (result == nil) || (result?.id == id):
-                    "Cannot borrow AnchainVoucher reference: The ID of the returned reference is incorrect"
+                    "Cannot borrow AnchainNFTVoucher reference: The ID of the returned reference is incorrect"
             }
         }
     }
 
     // Collection
-    // A collection of AnchainVoucher NFTs owned by an account
+    // A collection of AnchainNFTVoucher NFTs owned by an account
     //
-    pub resource Collection: AnchainVoucherCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: AnchainNFTVoucherCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an 'UInt64' ID field
         //
@@ -100,7 +100,7 @@ pub contract AnchainVoucher: NonFungibleToken {
         // and adds the ID to the id array
         //
         pub fun deposit(token: @NonFungibleToken.NFT) {
-            let token <- token as! @AnchainVoucher.NFT
+            let token <- token as! @AnchainNFTVoucher.NFT
 
             let id: UInt64 = token.id
 
@@ -128,14 +128,14 @@ pub contract AnchainVoucher: NonFungibleToken {
         }
 
         // borrowItem
-        // Gets a reference to an NFT in the collection as a AnchainVoucher,
+        // Gets a reference to an NFT in the collection as a AnchainNFTVoucher,
         // exposing all of its fields (including the typeID).
-        // This is safe as there are no functions that can be called on the AnchainVoucher.
+        // This is safe as there are no functions that can be called on the AnchainNFTVoucher.
         //
-        pub fun borrowItem(id: UInt64): &AnchainVoucher.NFT? {
+        pub fun borrowItem(id: UInt64): &AnchainNFTVoucher.NFT? {
             if self.ownedNFTs[id] != nil {
                 let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &AnchainVoucher.NFT
+                return ref as! &AnchainNFTVoucher.NFT
             } else {
                 return nil
             }
@@ -171,12 +171,12 @@ pub contract AnchainVoucher: NonFungibleToken {
 		// and deposit it in the recipients collection using their collection reference
         //
 		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, initMetadata: {String: String}) {
-            emit Minted(id: AnchainVoucher.totalSupply, initMeta: initMetadata)
+            emit Minted(id: AnchainNFTVoucher.totalSupply, initMeta: initMetadata)
 
 			// deposit it in the recipient's account using their reference
-			recipient.deposit(token: <-create AnchainVoucher.NFT(initID: AnchainVoucher.totalSupply, initMeta: initMetadata))
+			recipient.deposit(token: <-create AnchainNFTVoucher.NFT(initID: AnchainNFTVoucher.totalSupply, initMeta: initMetadata))
 
-            AnchainVoucher.totalSupply = AnchainVoucher.totalSupply + (1 as UInt64)
+            AnchainNFTVoucher.totalSupply = AnchainNFTVoucher.totalSupply + (1 as UInt64)
 		}
 	}
 
@@ -184,9 +184,9 @@ pub contract AnchainVoucher: NonFungibleToken {
     //
 	init() {
         // Set our named paths
-        self.CollectionStoragePath = /storage/AnchainVoucherCollection
-        self.CollectionPublicPath = /public/AnchainVoucherCollection
-        self.MinterStoragePath = /storage/AnchainVoucherMinter
+        self.CollectionStoragePath = /storage/AnchainNFTVoucherCollection
+        self.CollectionPublicPath = /public/AnchainNFTVoucherCollection
+        self.MinterStoragePath = /storage/AnchainNFTVoucherMinter
 
         // Initialize the total supply
         self.totalSupply = 0
