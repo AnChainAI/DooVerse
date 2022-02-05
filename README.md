@@ -1,1 +1,1 @@
-# Anchain.ai NFT Smart Contracts!
+# Anchain.AI NFT Smart Contracts!

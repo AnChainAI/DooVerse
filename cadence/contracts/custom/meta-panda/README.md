@@ -1,0 +1,7 @@
+# **Smart Contracts For Meta Panda Club**
+
+## **MetaPanda**
+- This smart contract is essentially a copy of KittyItems. Nothing new here except that we've slightly modified the `borrowViewResolver(id: UInt64)` function such that we can return nil. Why did we make this change?  Consider the case when we call the function with an ID that doesn't exist in the collection. In this scenario, we're forced to either panic or let a dereference error occcur, which may not be preferred in some situations. In order to prevent these errors from occuring we could write more code to check if the ID exists via getIDs() (cringe). OR we can simply have the function return nil. We've added a new interface that should help us resolve (no pun intended) the unwanted behavior described above. It also provides a much cleaner (and efficient) way of handling errors.
+
+## **MetaPandaVoucher**
+- This smart contract is based on KittyItems and [another existing contract](https://github.com/JambbTeam/flow-nft-vouchers/blob/main/contracts/Vouchers.cdc). The only major difference between MetaPandaVoucher and KittyItems is that there are now two new methods (consume and redeem) which were adapted from the Vouchers.cdc contract linked above. 
