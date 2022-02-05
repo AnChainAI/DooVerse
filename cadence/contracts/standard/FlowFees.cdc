@@ -1,5 +1,5 @@
-import FungibleToken from "./FungibleToken"
-import FlowToken from "./FlowToken"
+import FungibleToken from "./FungibleToken.cdc"
+import FlowToken from "./FlowToken.cdc"
 
 pub contract FlowFees {
 
