@@ -62,6 +62,7 @@ pub contract MetaPanda: NonFungibleToken {
     pub let handAccessories: String?
     pub let clothesBody: String?
     pub let background: String?
+    pub let foreground: String?
     pub let basepanda: String?
     init(
       clothesAccessories: String?,
@@ -70,6 +71,7 @@ pub contract MetaPanda: NonFungibleToken {
       handAccessories: String?,
       clothesBody: String?,
       background: String?,
+      foreground: String?,
       basepanda: String?
     ) {
       self.clothesAccessories = clothesAccessories
@@ -78,6 +80,7 @@ pub contract MetaPanda: NonFungibleToken {
       self.handAccessories = handAccessories
       self.clothesBody = clothesBody
       self.background = background
+      self.foreground = foreground
       self.basepanda = basepanda
     }
   }
