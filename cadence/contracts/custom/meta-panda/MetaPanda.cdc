@@ -58,6 +58,7 @@ pub contract MetaPanda: NonFungibleToken {
   pub struct Metadata {
     pub let clothesAccessories: String?
     pub let facialAccessories: String?
+    pub let facialExpression: String?
     pub let headAccessories: String?
     pub let handAccessories: String?
     pub let clothesBody: String?
@@ -67,6 +68,7 @@ pub contract MetaPanda: NonFungibleToken {
     init(
       clothesAccessories: String?,
       facialAccessories: String?,
+      facialExpression: String?,
       headAccessories: String?,
       handAccessories: String?,
       clothesBody: String?,
@@ -76,6 +78,7 @@ pub contract MetaPanda: NonFungibleToken {
     ) {
       self.clothesAccessories = clothesAccessories
       self.facialAccessories = facialAccessories
+      self.facialExpression = facialExpression
       self.headAccessories = headAccessories
       self.handAccessories = handAccessories
       self.clothesBody = clothesBody
