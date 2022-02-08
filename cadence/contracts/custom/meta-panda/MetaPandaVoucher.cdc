@@ -132,7 +132,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
 
         case Type<MetadataViews.Display>():
           return MetadataViews.Display(
-            name: "MetaPandaVoucher ".concat(self.id.toString()),
+            name: "Voucher ".concat(self.id.toString()),
             description: "",
             thumbnail: self.file.thumbnail
           )
@@ -162,6 +162,54 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // NFT is a resource type with an 'UInt64' ID field
     //
     pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+
+    // sortedIDs
+    // An array of this collection's IDs sorted in ascending order
+    //
+    access(self) var sortedIDs: [UInt64]
+
+    // binarySearch
+    // Returns the index of where `key` should be inserted into `arr` to maintain
+    // the ordering of `arr`
+    //
+    access(self) fun binarySearch(_ arr: [UInt64], _ key: UInt64): Int {
+      if arr.length <= 0 {
+        return 0
+      }
+      if key > arr[arr.length - 1] {
+        return arr.length
+      }
+      var lft = 0
+      var rgt = arr.length - 1
+      var mid = lft + ((rgt - lft) / 2)
+      while lft <= rgt {
+        mid = lft + ((rgt - lft) / 2)
+        if arr[mid] <= key {
+          lft = mid + 1
+        } else {
+          rgt = mid - 1
+        }
+      }
+      return mid
+    }
+
+    // insertionSort
+    // Sorts an array of UInt64s using the insertion sort algorithm
+    //
+    access(self) fun insertionSort(_ arr: [UInt64]): [UInt64] {
+      var i = 1
+      while i < arr.length {
+        let key = arr[i]
+        var j = i - 1
+        while j >= 0 && key < arr[j] {
+          arr[j + 1] = arr[j]
+          j = j - 1
+        }
+        arr[j + 1] = key
+        i = i + 1
+      }
+      return arr
+    }
 
     // borrowViewResolverSafe
     //
@@ -193,6 +241,9 @@ pub contract MetaPandaVoucher: NonFungibleToken {
       let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
       emit Withdraw(id: token.id, from: self.owner?.address)
+      
+      let idx = self.binarySearch(self.sortedIDs, token.id)
+      self.sortedIDs.insert(at: idx, token.id)
 
       return <-token
     }
@@ -211,6 +262,9 @@ pub contract MetaPandaVoucher: NonFungibleToken {
 
       emit Deposit(id: id, to: self.owner?.address)
 
+      let idx = self.binarySearch(self.sortedIDs, id)
+      self.sortedIDs.insert(at: idx, id)
+
       destroy oldToken
     }
 
@@ -219,6 +273,13 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     //
     pub fun getIDs(): [UInt64] {
       return self.ownedNFTs.keys
+    }
+
+    // getSortedIDs
+    // Returns an array of the IDs that are in the collection in ascending order
+    //
+    pub fun getSortedIDs(): [UInt64] {
+      return self.sortedIDs
     }
 
     // borrowNFT
@@ -240,6 +301,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // initializer
     //
     init () {
+      self.sortedIDs = []
       self.ownedNFTs <- {}
     }
   }
@@ -264,18 +326,18 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // Consumes a voucher from the redeemed collection by destroying it
     //
     pub fun consume(_ voucherID: UInt64): Address {
-      // Obtain a reference to the redeemed collection
-      let redeemedCollection = MetaPandaVoucher.account
-        .borrow<&MetaPandaVoucher.Collection>(
-          from: MetaPandaVoucher.RedeemedCollectionStoragePath
-        )!
+        // Obtain a reference to the redeemed collection
+        let redeemedCollection = MetaPandaVoucher.account
+          .borrow<&MetaPandaVoucher.Collection>(
+            from: MetaPandaVoucher.RedeemedCollectionStoragePath
+          )!
 
-      // Burn the voucher
-      destroy <- redeemedCollection.withdraw(withdrawID: voucherID)
-      
-      // Let event listeners know that this voucher has been consumed
-      emit Consumed(id: voucherID)
-      return MetaPandaVoucher.redeemers.remove(key: voucherID)!
+        // Burn the voucher
+        destroy <- redeemedCollection.withdraw(withdrawID: voucherID)
+        
+        // Let event listeners know that this voucher has been consumed
+        emit Consumed(id: voucherID)
+        return MetaPandaVoucher.redeemers.remove(key: voucherID)!
     }
 
   }
