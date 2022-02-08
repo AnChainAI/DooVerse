@@ -14,6 +14,7 @@
 **/
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 import MetadataViews from "../../standard/MetadataViews.cdc"
+import AnchainUtils from "../anchain/AnchainUtils.cdc"
 
 // MetaPanda
 // NFT items for MetaPanda!
@@ -37,21 +38,6 @@ pub contract MetaPanda: NonFungibleToken {
   // The total number of MetaPanda that have been minted
   //
   pub var totalSupply: UInt64
-
-  // One inconvenience with the new NFT metadata standard is that you 
-  // cannot return nil from `borrowViewResolver(id: UInt64)`. Consider 
-  // the case when we call the function with an ID that doesn't exist 
-  // in the collection. In this scenario, we're forced to either panic 
-  // or let a dereference error occcur, which may not be preferred in 
-  // some situations. In order to prevent these errors from occuring we 
-  // could write more code to check if the ID exists via getIDs() (cringe). 
-  // OR we can simply use the interface below. This interface should help 
-  // us resolve (no pun intended) the unwanted behavior described above 
-  // and provides a much cleaner (and efficient) way of handling errors.
-  //
-  pub resource interface ResolverCollection {
-    pub fun borrowViewResolverSafe(id: UInt64): &{MetadataViews.Resolver}?
-  }
 
   // Panda Metadata
   //
@@ -88,38 +74,18 @@ pub contract MetaPanda: NonFungibleToken {
     }
   }
 
-  pub struct File {
-
-    // The file extension
-    //
-    pub let ext: String
-
-    // The file thumbnail
-    //
-    pub let thumbnail: AnyStruct{MetadataViews.File}
-
-    init(
-      ext: String
-      thumbnail: AnyStruct{MetadataViews.File}
-    ) {
-      self.ext = ext
-      self.thumbnail = thumbnail
-    }
-
-  }
-
   // MetaPandaView
   //
   pub struct MetaPandaView {
     pub let uuid: UInt64
     pub let id: UInt64
     pub let metadata: Metadata
-    pub let file: File
+    pub let file: AnchainUtils.File
     init(
       uuid: UInt64,
       id: UInt64,
       metadata: Metadata,
-      file: File
+      file: AnchainUtils.File
     ) {
       self.uuid = uuid
       self.id = id
@@ -139,11 +105,11 @@ pub contract MetaPanda: NonFungibleToken {
     pub let metadata: Metadata
 
     // The token's file
-    pub let file: File
+    pub let file: AnchainUtils.File
     
     // initializer
     //
-    init(id: UInt64, metadata: Metadata, file: File) {
+    init(id: UInt64, metadata: Metadata, file: AnchainUtils.File) {
       self.id = id
       self.metadata = metadata
       self.file = file
@@ -156,7 +122,7 @@ pub contract MetaPanda: NonFungibleToken {
       return [
         Type<MetadataViews.Display>(),
         Type<MetaPandaView>(),
-        Type<File>()
+        Type<AnchainUtils.File>()
       ]
     }
 
@@ -181,7 +147,7 @@ pub contract MetaPanda: NonFungibleToken {
             file: self.file
           )
         
-        case Type<File>():
+        case Type<AnchainUtils.File>():
           return self.file
         
       }
@@ -193,11 +159,16 @@ pub contract MetaPanda: NonFungibleToken {
   // Collection
   // A collection of MetaPanda NFTs owned by an account
   //
-  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection, ResolverCollection {
+  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection, AnchainUtils.ResolverCollection {
     // dictionary of NFT conforming tokens
     // NFT is a resource type with an 'UInt64' ID field
     //
     pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+
+    // sortedIDs
+    // An array of this collection's IDs sorted in ascending order
+    //
+    access(self) var sortedIDs: [UInt64]
 
     // borrowViewResolverSafe
     //
@@ -229,6 +200,9 @@ pub contract MetaPanda: NonFungibleToken {
       let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
       emit Withdraw(id: token.id, from: self.owner?.address)
+      
+      let idx = AnchainUtils.binarySearch(self.sortedIDs, token.id)
+      self.sortedIDs.remove(at: idx)
 
       return <-token
     }
@@ -247,6 +221,9 @@ pub contract MetaPanda: NonFungibleToken {
 
       emit Deposit(id: id, to: self.owner?.address)
 
+      let idx = AnchainUtils.binarySearch(self.sortedIDs, id)
+      self.sortedIDs.insert(at: idx, id)
+
       destroy oldToken
     }
 
@@ -255,6 +232,13 @@ pub contract MetaPanda: NonFungibleToken {
     //
     pub fun getIDs(): [UInt64] {
       return self.ownedNFTs.keys
+    }
+
+    // getSortedIDs
+    // Returns an array of the IDs that are in the collection in ascending order
+    //
+    pub fun getSortedIDs(): [UInt64] {
+      return self.sortedIDs
     }
 
     // borrowNFT
@@ -276,6 +260,7 @@ pub contract MetaPanda: NonFungibleToken {
     // initializer
     //
     init () {
+      self.sortedIDs = []
       self.ownedNFTs <- {}
     }
   }
@@ -297,7 +282,7 @@ pub contract MetaPanda: NonFungibleToken {
     // Mints a new NFT with a new ID
 		// and deposit it in the recipients collection using their collection reference
     //
-		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, metadata: Metadata, file: File) {
+		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, metadata: Metadata, file: AnchainUtils.File) {
       emit Minted(id: MetaPanda.totalSupply, metadata: metadata)
 			recipient.deposit(token: <-create MetaPanda.NFT(id: MetaPanda.totalSupply, metadata: metadata, file: file))
       MetaPanda.totalSupply = MetaPanda.totalSupply + (1 as UInt64)

@@ -14,7 +14,7 @@
 **/
 import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
 import MetadataViews from "../../standard/MetadataViews.cdc"
-import MetaPanda from "./MetaPanda.cdc"
+import AnchainUtils from "../anchain/AnchainUtils.cdc"
 
 // MetaPandaVoucher
 // NFT items for MetaPandaVoucher!
@@ -78,12 +78,12 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     pub let uuid: UInt64
     pub let id: UInt64
     pub let metadata: Metadata
-    pub let file: MetaPanda.File
+    pub let file: AnchainUtils.File
     init(
       uuid: UInt64,
       id: UInt64,
       metadata: Metadata,
-      file: MetaPanda.File
+      file: AnchainUtils.File
     ) {
       self.uuid = uuid
       self.id = id
@@ -103,11 +103,11 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     pub let metadata: Metadata
 
     // The token's file
-    pub let file: MetaPanda.File
+    pub let file: AnchainUtils.File
 
     // initializer
     //
-    init(id: UInt64, metadata: Metadata, file: MetaPanda.File) {
+    init(id: UInt64, metadata: Metadata, file: AnchainUtils.File) {
       self.id = id
       self.metadata = metadata
       self.file = file
@@ -120,7 +120,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
       return [
         Type<MetadataViews.Display>(),
         Type<MetaPandaVoucherView>(),
-        Type<MetaPanda.File>()
+        Type<AnchainUtils.File>()
       ]
     }
 
@@ -132,7 +132,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
 
         case Type<MetadataViews.Display>():
           return MetadataViews.Display(
-            name: "MetaPandaVoucher ".concat(self.id.toString()),
+            name: "Voucher ".concat(self.id.toString()),
             description: "",
             thumbnail: self.file.thumbnail
           )
@@ -145,7 +145,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
             file: self.file
           )
         
-        case Type<MetaPanda.File>():
+        case Type<AnchainUtils.File>():
           return self.file
         
       }
@@ -157,11 +157,16 @@ pub contract MetaPandaVoucher: NonFungibleToken {
   // Collection
   // A collection of MetaPandaVoucher NFTs owned by an account
   //
-  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection, MetaPanda.ResolverCollection {
+  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection, AnchainUtils.ResolverCollection {
     // dictionary of NFT conforming tokens
     // NFT is a resource type with an 'UInt64' ID field
     //
     pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+
+    // sortedIDs
+    // An array of this collection's IDs sorted in ascending order
+    //
+    access(self) var sortedIDs: [UInt64]
 
     // borrowViewResolverSafe
     //
@@ -193,6 +198,9 @@ pub contract MetaPandaVoucher: NonFungibleToken {
       let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
       emit Withdraw(id: token.id, from: self.owner?.address)
+      
+      let idx = AnchainUtils.binarySearch(self.sortedIDs, token.id)
+      self.sortedIDs.remove(at: idx)
 
       return <-token
     }
@@ -211,6 +219,9 @@ pub contract MetaPandaVoucher: NonFungibleToken {
 
       emit Deposit(id: id, to: self.owner?.address)
 
+      let idx = AnchainUtils.binarySearch(self.sortedIDs, id)
+      self.sortedIDs.insert(at: idx, id)
+
       destroy oldToken
     }
 
@@ -219,6 +230,13 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     //
     pub fun getIDs(): [UInt64] {
       return self.ownedNFTs.keys
+    }
+
+    // getSortedIDs
+    // Returns an array of the IDs that are in the collection in ascending order
+    //
+    pub fun getSortedIDs(): [UInt64] {
+      return self.sortedIDs
     }
 
     // borrowNFT
@@ -240,6 +258,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // initializer
     //
     init () {
+      self.sortedIDs = []
       self.ownedNFTs <- {}
     }
   }
@@ -254,7 +273,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // Mints a new NFT with a new ID and deposits it in the recipients 
     // collection using their collection reference
     //
-	pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, metadata: Metadata, file: MetaPanda.File) {
+	pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, metadata: Metadata, file: AnchainUtils.File) {
       emit Minted(id: MetaPandaVoucher.totalSupply, metadata: metadata)
       recipient.deposit(token: <-create MetaPandaVoucher.NFT(id: MetaPandaVoucher.totalSupply, metadata: metadata, file: file))
       MetaPandaVoucher.totalSupply = MetaPandaVoucher.totalSupply + (1 as UInt64)
@@ -264,18 +283,18 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // Consumes a voucher from the redeemed collection by destroying it
     //
     pub fun consume(_ voucherID: UInt64): Address {
-      // Obtain a reference to the redeemed collection
-      let redeemedCollection = MetaPandaVoucher.account
-        .borrow<&MetaPandaVoucher.Collection>(
-          from: MetaPandaVoucher.RedeemedCollectionStoragePath
-        )!
+        // Obtain a reference to the redeemed collection
+        let redeemedCollection = MetaPandaVoucher.account
+          .borrow<&MetaPandaVoucher.Collection>(
+            from: MetaPandaVoucher.RedeemedCollectionStoragePath
+          )!
 
-      // Burn the voucher
-      destroy <- redeemedCollection.withdraw(withdrawID: voucherID)
-      
-      // Let event listeners know that this voucher has been consumed
-      emit Consumed(id: voucherID)
-      return MetaPandaVoucher.redeemers.remove(key: voucherID)!
+        // Burn the voucher
+        destroy <- redeemedCollection.withdraw(withdrawID: voucherID)
+        
+        // Let event listeners know that this voucher has been consumed
+        emit Consumed(id: voucherID)
+        return MetaPandaVoucher.redeemers.remove(key: voucherID)!
     }
 
   }
@@ -335,7 +354,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     self.account.link<&{
       NonFungibleToken.CollectionPublic, 
       MetadataViews.ResolverCollection, 
-      MetaPanda.ResolverCollection
+      AnchainUtils.ResolverCollection
     }>(
       self.RedeemedCollectionPublicPath, 
       target: self.RedeemedCollectionStoragePath
@@ -346,7 +365,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     self.account.link<&{
       NonFungibleToken.CollectionPublic, 
       MetadataViews.ResolverCollection, 
-      MetaPanda.ResolverCollection
+      AnchainUtils.ResolverCollection
     }>(
       self.CollectionPublicPath, 
       target: self.CollectionStoragePath
