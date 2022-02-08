@@ -564,6 +564,7 @@ pub contract DooverseAdminNFTStorefront {
     //
     destroy () {
       // Let event consumers know that this storefront will no longer exist.
+      destroy self.listings
       emit StorefrontDestroyed(storefrontResourceID: self.uuid)
     }
     
