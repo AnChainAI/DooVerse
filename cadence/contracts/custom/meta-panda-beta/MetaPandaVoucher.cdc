@@ -132,7 +132,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
 
         case Type<MetadataViews.Display>():
           return MetadataViews.Display(
-            name: "Voucher ".concat(self.id.toString()),
+            name: "MetaPandaVoucher ".concat(self.id.toString()),
             description: "",
             thumbnail: self.file.thumbnail
           )
