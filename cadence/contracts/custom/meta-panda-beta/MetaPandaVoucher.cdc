@@ -43,7 +43,7 @@ pub contract MetaPandaVoucher: NonFungibleToken {
   // redeemers
   // Tracks all accounts that have redeemed a voucher 
   //
-  pub let redeemers: { UInt64 : Address }
+  access(contract) let redeemers: { UInt64 : Address }
 
   // Named Paths
   //
@@ -327,6 +327,13 @@ pub contract MetaPandaVoucher: NonFungibleToken {
     // Store who redeemed this voucher
     MetaPandaVoucher.redeemers[voucherID] = collection.owner!.address
     emit Redeemed(id: voucherID, redeemer: collection.owner!.address)
+  }
+
+  // getRedeemers
+  // Return the redeemers dictionary
+  //
+  pub fun getRedeemers(): { UInt64 : Address } {
+    return self.redeemers
   }
 
   // initializer
