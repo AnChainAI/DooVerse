@@ -97,7 +97,7 @@ pub contract DooverseAdminNFTStorefront {
 
   // ListingResolved
   // The listing has been resolved. It has either been purchased, or removed and destroyed.
-  // We need this event to distinguish between remove() and resolve() in the storefront maneger.
+  // We need this event to distinguish between remove() and resolve() in the storefront manager.
   //
   pub event ListingResolved(packID: String, storefrontResourceID: UInt64, purchased: Bool, metadata: {String:String})
 
