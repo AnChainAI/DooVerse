@@ -29,7 +29,6 @@ pub contract AnchainUtils {
   //
   pub resource interface ResolverCollection {
     pub fun borrowViewResolverSafe(id: UInt64): &{MetadataViews.Resolver}?
-    pub fun getSortedIDs(): [UInt64]
   }
 
   // File
@@ -39,47 +38,20 @@ pub contract AnchainUtils {
 
     // The file extension
     //
-    pub let ext: String
+    pub let extension: String
 
     // The file thumbnail
     //
     pub let thumbnail: AnyStruct{MetadataViews.File}
 
     init(
-      ext: String
+      extension: String
       thumbnail: AnyStruct{MetadataViews.File}
     ) {
-      self.ext = ext
+      self.extension = extension
       self.thumbnail = thumbnail
     }
 
-  }
-
-  // binarySearch
-  // Returns the index of where `key` should be inserted into `arr` to maintain
-  // the ordering of `arr`.
-  //
-  pub fun binarySearch(_ arr: [UInt64], _ key: UInt64): Int {
-    if arr.length <= 0 {
-      return 0
-    }
-    if key > arr[arr.length - 1] {
-      return arr.length
-    }
-    var lft = 0
-    var rgt = arr.length - 1
-    var mid = lft + ((rgt - lft) / 2)
-    while lft <= rgt {
-      mid = lft + ((rgt - lft) / 2)
-      if arr[mid] == key {
-        return mid
-      } else if arr[mid] < key {
-        lft = mid + 1
-      } else {
-        rgt = mid - 1
-      }
-    }
-    return mid
   }
 
 }
