@@ -12,8 +12,8 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
-import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
-import MetadataViews from "../../standard/MetadataViews.cdc"
+import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 import AnchainUtils from "../anchain/AnchainUtils.cdc"
 
 // MetaPanda
