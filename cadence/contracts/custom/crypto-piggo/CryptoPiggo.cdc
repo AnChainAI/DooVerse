@@ -12,7 +12,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
-import NonFungibleToken from "../../standard/NonFungibleToken.cdc"
+import NonFungibleToken from 0x1d7e57aa55817448
 
 // CryptoPiggo
 // NFT items for Crypto Piggos!
@@ -59,12 +59,6 @@ pub contract CryptoPiggo: NonFungibleToken {
 
         pub fun getMetadata(): {String: String} {
             return self.metadata
-        }
-
-        // destructor
-        //
-        destroy() {
-            panic("Cannot delete NFT")
         }
 
         // initializer
@@ -172,11 +166,7 @@ pub contract CryptoPiggo: NonFungibleToken {
         // destructor
         //
         destroy() {
-            if self.ownedNFTs.length == 0 {
-                destroy self.ownedNFTs
-            } else {
-                panic("Collection must be empty before it can be destroyed.")
-            }
+            destroy self.ownedNFTs
         }
 
         // initializer
