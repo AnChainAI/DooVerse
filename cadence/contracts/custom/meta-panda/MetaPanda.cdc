@@ -14,7 +14,7 @@
 **/
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
-import AnchainUtils from "../anchain/AnchainUtils.cdc"
+import AnchainUtils from 0x7ba45bdcac17806a
 
 // MetaPanda
 // NFT items for MetaPanda!
@@ -27,6 +27,7 @@ pub contract MetaPanda: NonFungibleToken {
   pub event Withdraw(id: UInt64, from: Address?)
   pub event Deposit(id: UInt64, to: Address?)
   pub event Minted(id: UInt64, metadata: Metadata)
+  pub event Burned(id: UInt64)
 
   // Named Paths
   //
@@ -152,6 +153,10 @@ pub contract MetaPanda: NonFungibleToken {
         
       }
       return nil
+    }
+
+    destroy() {
+      emit Burned(id: self.id)
     }
 
   }
